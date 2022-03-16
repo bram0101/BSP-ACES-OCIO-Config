@@ -1,0 +1,288 @@
+ocio_profile_version: 2
+description: Bram Stout Productions OCIO configuration
+name: BSP_ACES
+search_path: "luts"
+family_separator: /
+strictparsing: false
+
+environment:
+    {}
+
+roles:
+    aces_interchange: ACES2065-1
+    cie_xyz_d65_interchange: CIE-XYZ D65
+    color_picking: sRGB
+    color_timing: ACEScct
+    compositing_log: ACEScc
+    data: Raw
+    default: ACEScg
+    matte_paint: ACEScc
+    reference: ACES2065-1
+    rendering: ACEScg
+    scene_linear: ACEScg
+    texture_paint: sRGB
+
+file_rules:
+    - !<Rule> {name: png, colorspace: sRGB, pattern: "*", extension: png}
+    - !<Rule> {name: jpg, colorspace: sRGB, pattern: "*", extension: jpg}
+    - !<Rule> {name: jpeg, colorspace: sRGB, pattern: "*", extension: jpeg}
+    - !<Rule> {name: tif, colorspace: sRGB, pattern: "*", extension: tif}
+    - !<Rule> {name: tiff, colorspace: sRGB, pattern: "*", extension: tiff}
+    - !<Rule> {name: tx, colorspace: Raw, pattern: "*", extension: tx}
+    - !<Rule> {name: hdr, colorspace: scene-linear Rec.709-sRGB, pattern: "*", extension: hdr}
+    - !<Rule> {name: exr, colorspace: ACEScg, pattern: "*", extension: exr}
+    - !<Rule> {name: Default, colorspace: default}
+
+shared_views:
+    - !<View> {name: ACES 1.0 SDR-video, view_transform: ACES 1.0 SDR-video, display_colorspace: <USE_DISPLAY_NAME>}
+    - !<View> {name: ACES 1.0 SDR-video BSP, view_transform: ACES 1.0 SDR-video BSP, display_colorspace: <USE_DISPLAY_NAME>}
+    - !<View> {name: ACES 1.0 SDR-cinema, view_transform: ACES 1.0 SDR-cinema, display_colorspace: <USE_DISPLAY_NAME>}
+    - !<View> {name: Un-tone-mapped, view_transform: Un-tone-mapped, display_colorspace: <USE_DISPLAY_NAME>}
+    - !<View> {name: Log, colorspace: Log film scan (ADX10)}
+    - !<View> {name: Raw, colorspace: Raw}
+
+displays:
+    sRGB:
+        - !<Views> [ACES 1.0 SDR-video, ACES 1.0 SDR-video BSP, Un-tone-mapped, Log, Raw]
+    Rec.1886 / Rec.709 video:
+        - !<Views> [ACES 1.0 SDR-video, ACES 1.0 SDR-video BSP, Un-tone-mapped, Log, Raw]
+    Rec.2020 video:
+        - !<Views> [ACES 1.0 SDR-video, ACES 1.0 SDR-video BSP, Un-tone-mapped, Log, Raw]
+    Rec.2100 ST-2084 (PQ):
+        - !<Views> [Un-tone-mapped, Log, Raw]
+    DCI-P3 D65:
+        - !<Views> [ACES 1.0 SDR-cinema, Un-tone-mapped, Log, Raw]
+    DCI-P3 D65 ST-2084 (PQ):
+        - !<Views> [Un-tone-mapped, Log, Raw]
+    AdobeRGB:
+        - !<Views> [ACES 1.0 SDR-video, Un-tone-mapped, Log, Raw]
+    ACES DCDM:
+        - !<Views> [ACES 1.0 SDR-video, ACES 1.0 SDR-video BSP, Un-tone-mapped, Log, Raw]
+
+view_transforms:
+    - !<ViewTransform>
+        name: Un-tone-mapped
+        from_scene_reference: !<RangeTransform> {min_in_value: 0.0, min_out_value: 0.0}
+        
+    - !<ViewTransform>
+        name: ACES 1.0 SDR-video
+        from_scene_reference: !<GroupTransform>
+            children:
+                - !<BuiltinTransform> {style: "ACES-OUTPUT - ACES2065-1_to_CIE-XYZ-D65 - SDR-CINEMA_1.0"}
+                - !<BuiltinTransform> {style: "UTILITY - ACES-AP1_to_CIE-XYZ-D65_BFD", direction: inverse}
+                - !<FixedFunctionTransform> {style: ACES_DarkToDim10}
+                - !<BuiltinTransform> {style: "ACEScg_to_ACES2065-1"}
+    
+    - !<ViewTransform>
+        name: ACES 1.0 SDR-cinema
+        from_scene_reference: !<GroupTransform>
+            children:
+                - !<BuiltinTransform> {style: "ACES-OUTPUT - ACES2065-1_to_CIE-XYZ-D65 - SDR-CINEMA_1.0"}
+                - !<BuiltinTransform> {style: "UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD", direction: inverse}
+
+    - !<ViewTransform>
+        name: ACES 1.0 SDR-video BSP
+        from_scene_reference: !<GroupTransform>
+            children:
+                - !<ColorSpaceTransform> {src: ACES2065-1, dst: ACEScg}
+
+                - !<FixedFunctionTransform> {style: RGB_TO_HSV}
+                - !<FileTransform> {src: saturation_mapping.cube, interpolation: linear}
+                - !<FixedFunctionTransform> {style: RGB_TO_HSV, direction: inverse}
+
+                - !<CDLTransform> {slope: [0.18, 0.18, 0.18], direction: inverse}
+                - !<CDLTransform> {power: [0.85, 0.85, 0.85]}
+                - !<CDLTransform> {slope: [0.18, 0.18, 0.18]}
+
+                - !<LogAffineTransform> {base: 10.0, lin_side_offset: 0.001, lin_side_slope: 1.0, log_side_offset: 0.54, log_side_slope: 0.18}
+                - !<FileTransform> {src: look_bsp.cube}
+                - !<LogAffineTransform> {base: 10.0, lin_side_offset: 0.001, lin_side_slope: 1.0, log_side_offset: 0.54, log_side_slope: 0.18, direction: inverse}
+
+                - !<ColorSpaceTransform> {src: ACEScg, dst: ACES2065-1}
+
+                - !<BuiltinTransform> {style: "ACES-OUTPUT - ACES2065-1_to_CIE-XYZ-D65 - SDR-CINEMA_1.0"}
+                - !<BuiltinTransform> {style: "UTILITY - ACES-AP1_to_CIE-XYZ-D65_BFD", direction: inverse}
+                - !<FixedFunctionTransform> {style: ACES_DarkToDim10}
+
+                - !<ColorSpaceTransform> {src: ACEScg, dst: scene-linear Rec.709-sRGB}
+                - !<FileTransform> {src: gamut_mapping_shaper.cube}
+                - !<FileTransform> {src: gamut_mapping.cube, interpolation: tetrahedral}
+                - !<FileTransform> {src: gamut_mapping_shaper.cube, direction: inverse}
+                - !<ColorSpaceTransform> {src: scene-linear Rec.709-sRGB, dst: ACES2065-1}
+
+default_view_transform: Un-tone-mapped
+
+colorspaces:
+    - !<ColorSpace>
+        name: ACES2065-1
+        family: Common
+        encoding: scene-linear
+
+    - !<ColorSpace>
+        name: ACEScg
+        family: Common
+        encoding: scene-linear
+        from_scene_reference: !<BuiltinTransform> {style: "ACEScg_to_ACES2065-1", direction: inverse}
+
+    - !<ColorSpace>
+        name: ACEScc
+        family: Common
+        encoding: log
+        from_scene_reference: !<BuiltinTransform> {style: "ACEScc_to_ACES2065-1", direction: inverse}
+
+    - !<ColorSpace>
+        name: ACEScct
+        family: Common
+        encoding: log
+        from_scene_reference: !<BuiltinTransform> {style: "ACEScct_to_ACES2065-1", direction: inverse}
+
+    - !<ColorSpace>
+        name: ACES RRT sRGB
+        family: Common
+        encoding: sdr-video
+        from_scene_reference: !<GroupTransform>
+            children:
+                - !<DisplayViewTransform> {src: ACES2065-1, display: sRGB, view: ACES 1.0 SDR-video}
+
+    - !<ColorSpace>
+        name: ACES RRT sRGB BSP
+        family: Common
+        encoding: sdr-video
+        from_scene_reference: !<GroupTransform>
+            children:
+                - !<DisplayViewTransform> {src: ACES2065-1, display: sRGB, view: ACES 1.0 SDR-video BSP}
+
+    - !<ColorSpace>
+        name: CIE-XYZ D65
+        family: Common
+        encoding: display-linear
+        from_scene_reference: !<BuiltinTransform> {style: "UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD"}
+    
+    - !<ColorSpace>
+        name: Oklab
+        family: Common
+        encoding: display-linear
+        from_scene_reference: !<GroupTransform>
+            children:
+                - !<BuiltinTransform> {style: "UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD"}
+                - !<MatrixTransform> {matrix: [ 0.818933010, 0.3618667424, -0.1288597137, 0, 0.0329845436, 0.9293118715, 0.0361456387, 0, 0.0482003018, 0.2643662691, 0.6338517070, 0, 0, 0, 0, 1 ]}
+                - !<ExponentTransform> {value: 3.0, direction: inverse}
+                - !<MatrixTransform> {matrix: [ 0.2104542553, 0.7936177850, -0.0040720468, 0, 1.9779984951, -2.4285922050, 0.4505937099, 0, 0.0259040371, 0.7827717662, -0.8086757660, 0, 0, 0, 0, 1 ]}
+    
+    - !<ColorSpace>
+        name: scene-linear Rec.709-sRGB
+        family: Common
+        encoding: scene-linear
+        from_scene_reference: !<MatrixTransform> {matrix: [ 0.439632981919, 0.382988698152, 0.177378319929, 0, 0.089776442959, 0.813439428749, 0.096784128292, 0, 0.017541170383, 0.111546553302, 0.870912276314, 0, 0, 0, 0, 1 ], direction: inverse}
+    
+    - !<ColorSpace>
+        name: scene-linear Rec.2020
+        family: Common
+        encoding: scene-linear
+        from_scene_reference: !<MatrixTransform> {matrix: [ 0.679085634707, 0.157700914643, 0.163213450650, 0, 0.046002003080, 0.859054673003, 0.094943323917, 0, -0.000573943188, 0.028467768408, 0.972106174780, 0, 0, 0, 0, 1 ], direction: inverse}
+
+    - !<ColorSpace>
+        name: scene-linear DCI-P3 D65
+        family: Common
+        encoding: scene-linear
+        from_scene_reference: !<MatrixTransform> {matrix: [ 0.518933487598, 0.286256586387, 0.194809926015, 0, 0.073859383047, 0.819845163937, 0.106295453016, 0, -0.000307011368, 0.043807050254, 0.956499961115, 0, 0, 0, 0, 1 ], direction: inverse}
+
+    - !<ColorSpace>
+        name: Raw
+        family: Common
+        encoding: data
+        isdata: true
+
+    - !<ColorSpace>
+        name: ARRI LogC (v3-EI800) / AlexaWideGamut
+        family: Camera
+        encoding: log
+        from_scene_reference: !<BuiltinTransform> {style: "ARRI_ALEXA-LOGC-EI800-AWG_to_ACES2065-1", direction: inverse}
+
+    - !<ColorSpace>
+        name: RED Log3G10 / REDWideGamutRGB
+        family: Camera
+        encoding: log
+        from_scene_reference: !<BuiltinTransform> {style: "RED_LOG3G10-RWG_to_ACES2065-1", direction: inverse}
+
+    - !<ColorSpace>
+        name: Sony SLog3 / SGamut3
+        family: Camera
+        encoding: log
+        from_scene_reference: !<BuiltinTransform> {style: "SONY_SLOG3-SGAMUT3_to_ACES2065-1", direction: inverse}
+
+    - !<ColorSpace>
+        name: Log film scan (ADX10)
+        family: Camera
+        encoding: log
+        from_scene_reference: !<BuiltinTransform> {style: "ADX10_to_ACES2065-1", direction: inverse}
+
+display_colorspaces:
+    - !<ColorSpace>
+        name: sRGB
+        family: Footage
+        encoding: sdr-video
+        from_display_reference: !<GroupTransform>
+            children:
+                - !<ColorSpaceTransform> {src: ACES2065-1, dst: scene-linear Rec.709-sRGB}
+                - !<ExponentWithLinearTransform> {gamma: 2.4, offset: 0.055, direction: inverse}
+
+    - !<ColorSpace>
+        name: Rec.1886 / Rec.709 video
+        family: Footage
+        encoding: sdr-video
+        from_display_reference: !<GroupTransform>
+            children:
+                - !<ColorSpaceTransform> {src: ACES2065-1, dst: scene-linear Rec.709-sRGB}
+                - !<ExponentTransform> {value: 2.4, direction: inverse}
+
+    - !<ColorSpace>
+        name: Rec.2020 video
+        family: Footage
+        encoding: sdr-video
+        from_display_reference: !<GroupTransform>
+            children:
+                - !<ColorSpaceTransform> {src: ACES2065-1, dst: scene-linear Rec.2020}
+                - !<ExponentTransform> {value: 2.4, direction: inverse}
+
+    - !<ColorSpace>
+        name: Rec.2100 ST-2084 (PQ)
+        family: Footage
+        encoding: hdr-video
+        from_display_reference: !<GroupTransform>
+            children:
+                - !<ColorSpaceTransform> {src: ACES2065-1, dst: scene-linear Rec.2020}
+                - !<BuiltinTransform> {style: "CURVE - LINEAR_to_ST-2084"}
+
+    - !<ColorSpace>
+        name: DCI-P3 D65
+        family: Footage
+        encoding: sdr-video
+        from_display_reference: !<GroupTransform>
+            children:
+                - !<ColorSpaceTransform> {src: ACES2065-1, dst: scene-linear DCI-P3 D65}
+                - !<ExponentTransform> {value: 2.6, direction: inverse}
+
+    - !<ColorSpace>
+        name: DCI-P3 D65 ST-2084 (PQ)
+        family: Footage
+        encoding: hdr-video
+        from_display_reference: !<GroupTransform>
+            children:
+                - !<ColorSpaceTransform> {src: ACES2065-1, dst: scene-linear DCI-P3 D65}
+                - !<BuiltinTransform> {style: "CURVE - LINEAR_to_ST-2084"}
+
+    - !<ColorSpace>
+        name: AdobeRGB
+        family: Footage
+        encoding: sdr-video
+        from_display_reference: !<GroupTransform>
+            children:
+                - !<BuiltinTransform> {style: "UTILITY - ACES-AP0_to_CIE-XYZ-D65_BFD"}
+                - !<MatrixTransform> {matrix: [ 2.041587903811, -0.565006974279, -0.344731350778, 0, -0.969243636281, 1.875967501508, 0.041555057407, 0, 0.013444280632, -0.118362392231, 1.015174994391, 0, 0, 0, 0, 1 ]}
+                - !<ExponentTransform> {value: 2.19921875, direction: inverse}
+    
+    - !<ColorSpace>
+        name: ACES DCDM
+        family: Footage
+        encoding: sdr-video
